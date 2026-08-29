@@ -1,0 +1,45 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 44230b4..216f969 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -6591,8 +6591,6 @@ checksum = "9737e026353e5cd0736f98eddae28665118eb6f6600902a7f50db585621fecb6"
+ [[package]]
+ name = "nono"
+ version = "0.53.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ae7eb523cc2036e9ad6527411c3da5dc2172dc454cc3447a03b910420a39bfee"
+ dependencies = [
+  "der",
+  "getrandom 0.4.1",
+diff --git a/Cargo.toml b/Cargo.toml
+index 1df2e86..4b7b635 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -2,6 +2,9 @@
+ 
+ [patch.crates-io]
+ async-openai = { git = "https://github.com/our-forks/async-openai.git", rev = "95b52ebdedf42143083cf3d6f0e0be7c84e9c808" }
++# Local addition: vendored nono 0.53.0 + armv7 (32-bit ARM) syscall constants
++# (SYS_OPENAT=322, SYS_OPENAT2=437) — upstream only defines them for x86_64/aarch64.
++nono = { path = "third_party/nono" }
+ 
+ [workspace]
+ resolver = "2"
+diff --git a/third_party/nono/src/sandbox/linux.rs b/third_party/nono/src/sandbox/linux.rs
+index 6bc5275..63d3cf9 100644
+--- a/third_party/nono/src/sandbox/linux.rs
++++ b/third_party/nono/src/sandbox/linux.rs
+@@ -811,6 +811,13 @@ pub const SYS_OPENAT: i32 = 56;
+ #[cfg(target_arch = "aarch64")]
+ pub const SYS_OPENAT2: i32 = 437;
+ 
++// Syscall numbers for 32-bit ARM (armv7l, EABI: __NR_openat=322, __NR_openat2=437)
++// (local addition for armv7-unknown-linux-gnueabihf cross-build)
++#[cfg(target_arch = "arm")]
++pub const SYS_OPENAT: i32 = 322;
++#[cfg(target_arch = "arm")]
++pub const SYS_OPENAT2: i32 = 437;
++
+ #[cfg(target_os = "linux")]
+ const SYS_SOCKET: i32 = libc::SYS_socket as i32;
+ #[cfg(target_os = "linux")]

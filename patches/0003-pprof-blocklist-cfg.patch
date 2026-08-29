@@ -1,0 +1,39 @@
+diff --git a/crates/codegen/xai-grok-shell-base/src/cpu_profile.rs b/crates/codegen/xai-grok-shell-base/src/cpu_profile.rs
+index d357dbe..187c8eb 100644
+--- a/crates/codegen/xai-grok-shell-base/src/cpu_profile.rs
++++ b/crates/codegen/xai-grok-shell-base/src/cpu_profile.rs
+@@ -660,17 +660,23 @@ mod platform {
+         frequency_hz: i32,
+         svg_path: &Path,
+     ) -> Result<Box<dyn ProfilerEngine>, ControlError> {
+-        let guard = pprof::ProfilerGuardBuilder::default()
+-            .frequency(frequency_hz)
+-            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+-            .build()
+-            .map_err(|err| {
+-                ControlError::with_details(
+-                    ControlErrorCode::InternalError,
+-                    "failed to start CPU profiler",
+-                    serde_json::json!({ "error": err.to_string(), "frequency_hz": frequency_hz }),
+-                )
+-            })?;
++        let builder = pprof::ProfilerGuardBuilder::default().frequency(frequency_hz);
++        // pprof only exposes `blocklist` on 64-bit arches it can unwind; on 32-bit
++        // targets (e.g. armv7) the method is compiled out, so skip it there.
++        #[cfg(any(
++            target_arch = "x86_64",
++            target_arch = "aarch64",
++            target_arch = "riscv64",
++            target_arch = "loongarch64"
++        ))]
++        let builder = builder.blocklist(&["libc", "libgcc", "pthread", "vdso"]);
++        let guard = builder.build().map_err(|err| {
++            ControlError::with_details(
++                ControlErrorCode::InternalError,
++                "failed to start CPU profiler",
++                serde_json::json!({ "error": err.to_string(), "frequency_hz": frequency_hz }),
++            )
++        })?;
+ 
+         Ok(Box::new(PprofProfilerEngine {
+             guard,

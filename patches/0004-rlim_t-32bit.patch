@@ -1,0 +1,41 @@
+diff --git a/crates/codegen/xai-grok-pager/src/app/mermaid_worker.rs b/crates/codegen/xai-grok-pager/src/app/mermaid_worker.rs
+index 01b0c06..c9588e2 100644
+--- a/crates/codegen/xai-grok-pager/src/app/mermaid_worker.rs
++++ b/crates/codegen/xai-grok-pager/src/app/mermaid_worker.rs
+@@ -466,15 +466,16 @@ fn cap_child_address_space() {
+         if libc::getrlimit(libc::RLIMIT_AS, &mut lim) != 0 {
+             return;
+         }
+-        // Respect any existing (lower) hard limit; never raise it
+-        // `rlim_t` is `u64` on Linux, so the cap const needs no cast
++        // Respect any existing (lower) hard limit; never raise it.
++        // `rlim_t` is 64-bit on 64-bit Linux but 32-bit on armv7 — do the math
++        // in u64 and cast back when storing.
+         let cap = if lim.rlim_max == libc::RLIM_INFINITY {
+             CHILD_ADDRESS_SPACE_CAP_BYTES
+         } else {
+-            CHILD_ADDRESS_SPACE_CAP_BYTES.min(lim.rlim_max)
++            CHILD_ADDRESS_SPACE_CAP_BYTES.min(lim.rlim_max as u64)
+         };
+-        if lim.rlim_cur == libc::RLIM_INFINITY || lim.rlim_cur > cap {
+-            lim.rlim_cur = cap;
++        if lim.rlim_cur == libc::RLIM_INFINITY || lim.rlim_cur as u64 > cap {
++            lim.rlim_cur = cap as libc::rlim_t;
+             let _ = libc::setrlimit(libc::RLIMIT_AS, &lim);
+         }
+     }
+diff --git a/crates/codegen/xai-grok-shell/src/util/limits.rs b/crates/codegen/xai-grok-shell/src/util/limits.rs
+index 7a17a6a..abb6465 100644
+--- a/crates/codegen/xai-grok-shell/src/util/limits.rs
++++ b/crates/codegen/xai-grok-shell/src/util/limits.rs
+@@ -80,7 +80,9 @@ fn rlimit(kind: RlimitKind) -> Option<(Option<u64>, Option<u64>)> {
+     if unsafe { libc::getrlimit(resource, &mut lim) } != 0 {
+         return None;
+     }
+-    let val = |v: libc::rlim_t| (v != libc::RLIM_INFINITY).then_some(v);
++    // rlim_t is 32-bit on some targets (e.g. armv7-unknown-linux-gnueabihf);
++    // cast to u64 to keep a uniform payload shape.
++    let val = |v: libc::rlim_t| (v != libc::RLIM_INFINITY).then_some(v as u64);
+     Some((val(lim.rlim_cur), val(lim.rlim_max)))
+ }
+ 
