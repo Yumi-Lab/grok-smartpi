@@ -95,7 +95,8 @@ jobs:
         working-directory: upstream
         run: |
           set -e
-          cp -r "$GITHUB_WORKSPACE/tools/cross" tools/cross
+          mkdir -p tools/cross
+          cp "$GITHUB_WORKSPACE"/tools/cross/* tools/cross/
           install -m755 /tmp/rg-armv7 tools/cross/rg-armv7
           chmod +x tools/cross/*.sh
           # Loud failure is the point: a patch that no longer applies means
