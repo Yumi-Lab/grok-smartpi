@@ -52,8 +52,10 @@ Full toolchain details, the reason for every patch, and the non-problems: [docs/
 | Compiles for `armv7-unknown-linux-gnueabihf` | yes — `grok 1.0.12 (bc7f02eddd3d)`, upstream `bc7f02e` |
 | `cargo check` (fresh tree, Apple Silicon host) | 3m19s |
 | `cargo build --release` (Apple Silicon host) | ~6 min |
-| Artifact | 143,540,788 bytes, `ELF 32-bit LSB pie executable, ARM, EABI5, dynamically linked, glibc, stripped` |
-| qemu smoke (`linux/arm/v7`, glibc 2.36) | `--version` PASS, `--help` PASS, `doctor` PASS, headless `-p` without key → clean auth error PASS, bogus `XAI_API_KEY` → real DNS+TLS+HTTP round-trip to api.x.ai (HTTP 400, as expected) PASS |
+| Local artifact | 143,540,788 bytes, `ELF 32-bit LSB pie executable, ARM, EABI5, dynamically linked, glibc, stripped` |
+| CI build (ubuntu-24.04, cold cache) | 25m22s end to end — [run 33260015355](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/33260015355) |
+| Released artifact (`snapshot-armv7-bc7f02e`) | 145,061,620 bytes, sha256 `8324cd1a…85de42`, re-downloaded and checksum-verified |
+| qemu smoke (`linux/arm/v7`, glibc 2.36) | `--version` PASS (also in CI), `--help` PASS, `doctor` PASS, headless `-p` without key → clean auth error PASS, bogus `XAI_API_KEY` → real DNS+TLS+HTTP round-trip to api.x.ai (HTTP 400, as expected) PASS |
 | Sandbox under qemu | bubblewrap fails to create user namespaces under qemu-user — known emulation artifact, fails cleanly |
 | Real hardware (Smart Pi One) | **NOT yet validated**: TUI, real auth, H3 performance |
 

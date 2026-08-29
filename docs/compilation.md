@@ -122,8 +122,15 @@ binfmt via `tonistiigi/binfmt --install arm`) — all PASS:
 - headless `-p` with a bogus `XAI_API_KEY` → real DNS + TLS + HTTP round-trip
   to api.x.ai, HTTP 400 as expected for a bad key
 
-The same smoke test runs in CI after every build (artifact is uploaded
-first, so a smoke failure never costs the binary).
+The `--version` smoke test also runs in CI after every build (artifact is
+uploaded first, so a smoke failure never costs the binary).
+
+CI reference run ([run 33260015355](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/33260015355),
+`ubuntu-24.04`, cold cache): **25m22s** end to end, all steps green, smoke
+test printed `grok 1.0.12 (bc7f02eddd3d)` under qemu. The published
+`snapshot-armv7-bc7f02e` asset is 145,061,620 bytes (CI binary; size differs
+from the local reference build) and was re-downloaded and checksum-verified
+after publication.
 
 ## Known limits / open points
 
