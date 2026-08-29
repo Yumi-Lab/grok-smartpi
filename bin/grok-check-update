@@ -1,0 +1,30 @@
+#!/bin/sh
+# grok-check-update — one JSON line: installed vs newest grok-smartpi snapshot.
+#   {"cli":"grok","installed":"snapshot-armv7-bc7f02e","latest":"snapshot-armv7-bc7f02e","update_available":false}
+#
+# Contract shared by every Yumi-Lab/*-smartpi repo (<cli>-check-update): no
+# sudo, no side effects, fast; "installed"/"latest" are null when unknown
+# (offline, not installed). The Yumi AI Gateway polls this to light its update
+# badge, then re-runs install.sh to actually update.
+#
+# Installed source of truth: /opt/grok/VERSION (written by install.sh).
+# Latest: the newest snapshot-armv7-* prerelease of Yumi-Lab/grok-smartpi.
+
+OPT="/opt/grok"
+LIB="$OPT/lib/grok-release.sh"
+[ -f "$LIB" ] || LIB="$(cd "$(dirname "$0")/../lib" 2>/dev/null && pwd)/grok-release.sh"
+# shellcheck source=SCRIPTDIR/../lib/grok-release.sh
+. "$LIB"
+
+installed="$(cat "$OPT/VERSION" 2>/dev/null)"
+case "$installed" in *[!0-9a-zA-Z.-]*|"") installed="" ;; esac
+
+latest="$(grok_latest_tag)"
+case "$latest" in *[!0-9a-zA-Z.-]*|"") latest="" ;; esac
+
+up=false
+[ -n "$installed" ] && [ -n "$latest" ] && [ "$installed" != "$latest" ] && up=true
+
+j() { if [ -n "$1" ]; then printf '"%s"' "$1"; else printf 'null'; fi; }
+printf '{"cli":"grok","installed":%s,"latest":%s,"update_available":%s}\n' \
+  "$(j "$installed")" "$(j "$latest")" "$up"
