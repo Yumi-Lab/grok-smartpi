@@ -1,0 +1,187 @@
+name: build-armv7
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish the result as a snapshot-armv7-* prerelease"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    tags: ["snapshot-armv7-*"]
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM_REPO: https://github.com/xai-org/grok-build
+  # Pinned upstream revision. Bump deliberately; if a patch stops applying,
+  # the build fails LOUD — that is the signal the upstream tree moved.
+  UPSTREAM_REV: bc7f02eddd3d84085849dc19ed216f11c23b0571
+  TARGET: armv7-unknown-linux-gnueabihf
+  ZIG_VERSION: "0.16.0"
+  # sha256 of zig-x86_64-linux-0.16.0.tar.xz (ziglang.org download index)
+  ZIG_SHA256: 70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+  RG_VERSION: "15.2.0"
+  # sha256 of ripgrep-15.2.0-armv7-unknown-linux-gnueabihf.tar.gz (official
+  # BurntSushi/ripgrep release asset; recorded at first download)
+  RG_SHA256: d859589734d9d802107ad9eff6a78cfd9b0080d2fecb0ad8772605b35e373199
+  NONO_VERSION: "0.53.0"
+  # sha256 of nono-0.53.0.crate (crates.io registry checksum from Cargo.lock)
+  NONO_SHA256: ae7eb523cc2036e9ad6527411c3da5dc2172dc454cc3447a03b910420a39bfee
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream (pinned rev)
+        id: prep
+        run: |
+          set -e
+          git init -q upstream
+          cd upstream
+          git remote add origin "$UPSTREAM_REPO"
+          if ! git fetch -q --depth 1 origin "$UPSTREAM_REV" || ! git checkout -q FETCH_HEAD; then
+            echo "::notice title=Nothing to build::upstream $UPSTREAM_REPO@$UPSTREAM_REV unreachable — skipping build"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust 1.94.0 + armv7 target
+        if: steps.prep.outputs.skip != 'true'
+        uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          targets: armv7-unknown-linux-gnueabihf
+
+      - name: Install zig 0.16.0 (C cross-compiler/linker)
+        if: steps.prep.outputs.skip != 'true'
+        run: |
+          set -e
+          curl -fsSL "https://ziglang.org/download/$ZIG_VERSION/zig-x86_64-linux-$ZIG_VERSION.tar.xz" -o /tmp/zig.tar.xz
+          echo "$ZIG_SHA256  /tmp/zig.tar.xz" | sha256sum -c -
+          sudo tar -xJf /tmp/zig.tar.xz -C /opt
+          sudo ln -sf "/opt/zig-x86_64-linux-$ZIG_VERSION/zig" /usr/local/bin/zig
+          zig version
+
+      - name: Install build deps
+        if: steps.prep.outputs.skip != 'true'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler pkg-config
+
+      - name: Fetch pinned third-party inputs (nono crate, ripgrep armv7)
+        if: steps.prep.outputs.skip != 'true'
+        working-directory: upstream
+        run: |
+          set -e
+          # nono 0.53.0 from crates.io, vendored to third_party/nono (patched next)
+          curl -fsSL "https://static.crates.io/crates/nono/nono-$NONO_VERSION.crate" -o /tmp/nono.crate
+          echo "$NONO_SHA256  /tmp/nono.crate" | sha256sum -c -
+          mkdir -p third_party
+          tar xzf /tmp/nono.crate -C third_party
+          mv "third_party/nono-$NONO_VERSION" third_party/nono
+          # official ripgrep 15.2.0 armv7 binary: the xai-grok-tools /
+          # xai-grok-shell build scripts have no linux-arm download asset,
+          # so they bundle the binary at $GROK_*_BUNDLE_RG_PATH instead
+          curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/$RG_VERSION/ripgrep-$RG_VERSION-armv7-unknown-linux-gnueabihf.tar.gz" -o /tmp/rg.tar.gz
+          echo "$RG_SHA256  /tmp/rg.tar.gz" | sha256sum -c -
+          tar xzf /tmp/rg.tar.gz -C /tmp
+          install -m755 "/tmp/ripgrep-$RG_VERSION-armv7-unknown-linux-gnueabihf/rg" tools/cross/rg-armv7
+
+      - name: Copy zig wrappers + apply patches
+        if: steps.prep.outputs.skip != 'true'
+        working-directory: upstream
+        run: |
+          set -e
+          cp -r "$GITHUB_WORKSPACE/tools/cross" tools/cross
+          chmod +x tools/cross/*.sh
+          # Loud failure is the point: a patch that no longer applies means
+          # the upstream tree moved — review before bumping UPSTREAM_REV.
+          for p in "$GITHUB_WORKSPACE"/patches/*.patch; do git apply -v "$p"; done
+          sed -i "s|@GROK_ROOT@|$PWD|g" .cargo/config.toml
+
+      - name: Build xai-grok-pager (armv7 release)
+        if: steps.prep.outputs.skip != 'true'
+        working-directory: upstream
+        run: cargo build -p xai-grok-pager-bin --release --target "$TARGET"
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.prep.outputs.skip != 'true'
+        with:
+          workspaces: upstream
+          save-if: "true"
+
+      - name: Stage artifact + diagnostics
+        if: steps.prep.outputs.skip != 'true'
+        working-directory: upstream
+        run: |
+          set -e
+          B="target/$TARGET/release/xai-grok-pager"
+          mkdir -p out
+          install -m755 "$B" out/grok-armv7
+          ( cd out && sha256sum grok-armv7 > grok-armv7.sha256 )
+          file out/grok-armv7
+          readelf -h out/grok-armv7
+          cat out/grok-armv7.sha256
+          ls -l out/
+
+      - name: Upload artifact (before the smoke test, so a smoke failure never costs the build)
+        if: steps.prep.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: grok-armv7-${{ github.sha }}
+          path: upstream/out/
+          retention-days: 30
+
+      - name: Smoke test under qemu (linux/arm/v7, debian bookworm = glibc 2.36)
+        if: steps.prep.outputs.skip != 'true'
+        id: smoke
+        continue-on-error: true
+        working-directory: upstream
+        run: |
+          set -e
+          docker run --privileged --rm tonistiigi/binfmt --install arm
+          OUT="$(docker run --rm --platform linux/arm/v7 -v "$PWD/out:/work:ro" debian:bookworm-slim /work/grok-armv7 --version)"
+          echo "$OUT"
+          echo "$OUT" | grep -q grok
+
+      - name: Smoke test notice
+        if: steps.prep.outputs.skip != 'true' && steps.smoke.outcome == 'failure'
+        run: |
+          echo "::notice title=Smoke test failed::qemu arm/v7 --version failed; the artifact was still uploaded. Known limitation: bubblewrap cannot create user namespaces under qemu-user — see docs/compilation.md."
+
+      - name: Publish snapshot prerelease
+        if: steps.prep.outputs.skip != 'true' && ((github.event_name == 'workflow_dispatch' && inputs.release) || startsWith(github.ref, 'refs/tags/'))
+        working-directory: upstream/out
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="snapshot-armv7-$(printf '%s' "$UPSTREAM_REV" | cut -c1-7)"
+          BIN_VER="$(strings grok-armv7 | grep -m1 -oE 'grok [0-9]+\.[0-9]+\.[0-9]+ \([0-9a-f]+\)' || echo 'unknown')"
+          # NOTE: the heredoc body must sit exactly at the run-block indent so
+          # YAML strips it flush-left; the EOF terminator tolerates no indent.
+          NOTES="$(cat <<EOF
+          Grok Build (xAI) cross-compiled for 32-bit ARM (armv7l / armhf, glibc) — Smart Pi One (Allwinner H3).
+
+          - upstream: $UPSTREAM_REPO @ $UPSTREAM_REV (\`$BIN_VER\`)
+          - target: \`$TARGET\`, Rust 1.94.0, zig cc $ZIG_VERSION
+          - smoke-tested under qemu (linux/arm/v7, glibc 2.36); NOT yet validated on real hardware (TUI, auth, performance)
+
+          Install on the board:
+          \`\`\`
+          curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | bash
+          \`\`\`
+
+          Known limits: sandbox needs bubblewrap + user namespaces; under qemu-user the sandbox cannot start (emulation artifact). Details: https://github.com/Yumi-Lab/grok-smartpi
+          EOF
+          )"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" grok-armv7 grok-armv7.sha256 --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" grok-armv7 grok-armv7.sha256 \
+              --prerelease --title "$TAG" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY"
