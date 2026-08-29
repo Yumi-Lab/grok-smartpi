@@ -88,7 +88,7 @@ jobs:
           curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/$RG_VERSION/ripgrep-$RG_VERSION-armv7-unknown-linux-gnueabihf.tar.gz" -o /tmp/rg.tar.gz
           echo "$RG_SHA256  /tmp/rg.tar.gz" | sha256sum -c -
           tar xzf /tmp/rg.tar.gz -C /tmp
-          install -m755 "/tmp/ripgrep-$RG_VERSION-armv7-unknown-linux-gnueabihf/rg" tools/cross/rg-armv7
+          install -m755 "/tmp/ripgrep-$RG_VERSION-armv7-unknown-linux-gnueabihf/rg" /tmp/rg-armv7
 
       - name: Copy zig wrappers + apply patches
         if: steps.prep.outputs.skip != 'true'
@@ -96,6 +96,7 @@ jobs:
         run: |
           set -e
           cp -r "$GITHUB_WORKSPACE/tools/cross" tools/cross
+          install -m755 /tmp/rg-armv7 tools/cross/rg-armv7
           chmod +x tools/cross/*.sh
           # Loud failure is the point: a patch that no longer applies means
           # the upstream tree moved — review before bumping UPSTREAM_REV.
