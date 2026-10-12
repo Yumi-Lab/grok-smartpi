@@ -21,10 +21,14 @@ GROK_ASSET_BIN="grok-armv7"
 # shellcheck disable=SC2034
 GROK_ASSET_SUM="grok-armv7.sha256"
 
+# Both lookups print "" on any failure and always return 0: install.sh runs
+# under pipefail, where curl's own status would otherwise kill it silently
+# (exit 35, no message) before its "" check can explain what went wrong.
+
 # grok_latest_tag — print the newest non-draft snapshot-armv7-* tag, "" if none
 # (offline, rate-limited, or no release published yet).
 grok_latest_tag() {
-  curl -fsSL --max-time 15 "$GROK_RELEASE_API?per_page=20" 2>/dev/null \
+  { curl -fsSL --max-time 15 "$GROK_RELEASE_API?per_page=20" 2>/dev/null || true; } \
   | python3 -c '
 import json, sys
 try:
@@ -42,7 +46,7 @@ for r in rels:
 # grok_asset_url TAG ASSET — print the browser_download_url of ASSET in release
 # TAG, "" if the release or the asset is missing.
 grok_asset_url() {
-  curl -fsSL --max-time 15 "$GROK_RELEASE_API/tags/$1" 2>/dev/null \
+  { curl -fsSL --max-time 15 "$GROK_RELEASE_API/tags/$1" 2>/dev/null || true; } \
   | python3 -c '
 import json, sys
 name = sys.argv[1]
