@@ -77,6 +77,7 @@ Measured from a Smart Pi One on a Hangzhou fibre line (2026-10-12):
 | Sandbox under qemu | bubblewrap fails to create user namespaces under qemu-user — known emulation artifact, fails cleanly |
 | Install on hardware (Smart Pi One, DietPi trixie, 991 MB RAM, 4G uplink) | first install through the sudo path, from the published release: PASS (20 min, checksum OK) |
 | OTA update on hardware | `grok-check-update` → `update_available: true`; the gateway's service user re-runs the one-liner unprivileged → 1.0.12 → 1.0.45 in 23.6 min; probe back to `false`: PASS |
+| Pinned install on hardware | the one-liner moves a board from the snapshot to `v1.0.45` (33 min on 4G, checksum OK); probe `installed = latest = v1.0.45`; a re-run is a no-op; an install older than the pin lights `update_available: true`: PASS |
 | Runtime on hardware (H3, 1.0.45) | `--version` 0.1 s; `doctor` 0.1 s; TUI renders (login screen) and exits cleanly on Ctrl+Q; headless `-p` with a bogus key → real round-trip to api.x.ai, HTTP 400 in 7.7–8.7 s: PASS |
 | Second board (Hangzhou, Debian forky, glibc 2.43) | binary runs (`--version`, `doctor`, auth error); api.x.ai only through a tunnel — see [From mainland China](#from-mainland-china) |
 | **Not validated** | a real authenticated session (no xAI key was available for the tests), and grok's sandboxed command execution on hardware |
