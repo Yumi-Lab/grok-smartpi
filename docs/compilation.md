@@ -128,22 +128,26 @@ binfmt via `tonistiigi/binfmt --install arm`) — all PASS:
 The `--version` smoke test also runs in CI after every build (artifact is
 uploaded first, so a smoke failure never costs the binary).
 
-CI reference run ([run 33260015355](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/33260015355),
-`ubuntu-24.04`, cold cache): **25m22s** end to end, all steps green, smoke
-test printed `grok 1.0.12 (bc7f02eddd3d)` under qemu. The published
-`snapshot-armv7-bc7f02e` asset is 145,061,620 bytes (CI binary; size differs
+CI reference run for `2bdd1d6` ([run 38205968517](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/38205968517),
+`ubuntu-24.04`, cold cache): **20m19s** end to end, all steps green, smoke
+test printed `grok 1.0.45 (2bdd1d6a6369)` under qemu. The published
+`snapshot-armv7-2bdd1d6` asset is 159,640,132 bytes (CI binary; size differs
 from the local reference build) and was re-downloaded and checksum-verified
-after publication.
+after publication. The previous snapshot (`bc7f02e`, 1.0.12) took 25m22s on
+the same runner.
 
 ## Known limits / open points
 
 - **Sandbox under qemu**: the command sandbox is bubblewrap (not Landlock);
   bwrap cannot create user namespaces under qemu-user 32-bit emulation and
-  fails cleanly. On real hardware with `CONFIG_USER_NS` this path is expected
-  to work — unverified.
-- **Real hardware**: TUI rendering, real authentication, and performance/RAM
-  footprint on the Allwinner H3 are **not measured yet**. The binary is ~143 MB;
-  boards with 512 MB RAM may struggle — measure before relying on it.
+  fails cleanly. On a Smart Pi One (DietPi trixie) an unprivileged `bwrap`
+  does create user namespaces; grok's own sandboxed command path still needs
+  an authenticated session to be exercised.
+- **Real hardware**: install, OTA update, TUI, headless round-trip and RAM are
+  measured on two Smart Pi One boards (README, "Measured status"). A real
+  authenticated session is not: no xAI key was available.
+- **Mainland China**: api.x.ai is blocked and GitHub is intermittent; see the
+  README section "From mainland China".
 - **Upstream drift**: `UPSTREAM_REV` is pinned. Bumping it may break a patch;
   `git apply` failing loudly in CI is the intended alarm.
 

@@ -41,9 +41,18 @@ Full toolchain details, the reason for every patch, and the non-problems: [docs/
 ## Target prerequisites
 
 - `armv7l` CPU (checked by `install.sh`)
-- glibc userland — **2.36 tested** (Debian bookworm); musl unsupported (dynamic ELF, interpreter `/lib/ld-linux-armhf.so.3`)
-- `bubblewrap` + a kernel with `CONFIG_USER_NS` for the command sandbox (the binary runs without it, unsandboxed — the installer warns)
-- RAM: **not measured on hardware.** The binary is ~158 MB; on a 512 MB–1 GB H3 board, watch memory pressure. `GROK_CPUS` + `nice` in the launcher help keep the board responsive.
+- glibc userland — tested on **2.36** (qemu, bookworm), **2.41** (DietPi trixie) and **2.43** (Debian forky) on hardware; musl unsupported (dynamic ELF, interpreter `/lib/ld-linux-armhf.so.3`)
+- `bubblewrap` + a kernel with `CONFIG_USER_NS` for the command sandbox (the binary runs without it, unsandboxed — the installer warns). On a DietPi trixie Smart Pi One, `bwrap` creates user namespaces as an unprivileged user.
+- Disk: ~160 MB under `/opt/grok`, plus the same again in `/var/tmp` during an update.
+- RAM, peak RSS measured on a 1 GB Smart Pi One: `--version` 14 MB, idle TUI 91 MB, one headless request 110 MB. `GROK_CPUS` + `nice` in the launcher keep the board responsive.
+- Network: `api.x.ai` for the agent, GitHub for install and updates. From mainland China, neither works reliably without a tunnel — see below.
+
+## From mainland China
+
+Measured from a Smart Pi One on a Hangzhou fibre line (2026-10-12):
+
+- **`api.x.ai` is blocked.** The local DNS answers with a Facebook address, and the real Cloudflare address times out when reached directly. `grok` then hangs with no output (killed after 180 s). With `api.x.ai` pinned in `/etc/hosts` and its addresses routed through a VPN tunnel exiting in Europe, the same headless request completes in ~10 s.
+- **GitHub comes and goes.** `api.github.com`, `github.com` and `raw.githubusercontent.com` were each reachable in some windows and dead in others within the same hour. When the path held, the 145 MB binary came down at ~41 KB/s (59 min). When a hop drops, the installer stops with an explicit message; re-run it once the path is back, or route GitHub through the tunnel as well.
 
 ## Measured status
 
@@ -52,13 +61,17 @@ Full toolchain details, the reason for every patch, and the non-problems: [docs/
 | Compiles for `armv7-unknown-linux-gnueabihf` | yes — `grok 1.0.45 (2bdd1d6a6369)`, upstream `2bdd1d6` (patches unchanged since `bc7f02e`) |
 | `cargo build --release` (Apple Silicon host, empty target dir) | 21m27s |
 | Local artifact | 157,603,700 bytes, `ELF 32-bit LSB pie executable, ARM, EABI5, dynamically linked, glibc, stripped` |
-| CI build (ubuntu-24.04, cold cache) | 25m22s end to end — [run 33260015355](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/33260015355) |
-| Released artifact (`snapshot-armv7-bc7f02e`) | 145,061,620 bytes, sha256 `8324cd1a…85de42`, re-downloaded and checksum-verified |
+| CI build (ubuntu-24.04, cold cache) | 20m19s (tag run, publishes) / 30m10s (`main` run) — [run 38205968517](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/38205968517) |
+| Released artifact (`snapshot-armv7-2bdd1d6`) | 159,640,132 bytes, sha256 `84094bbb…9a3175`, re-downloaded and checksum-verified |
 | qemu smoke (`linux/arm/v7`, glibc 2.36) | `--version` PASS (also in CI), `--help` PASS, `doctor` PASS, headless `-p` without key → clean auth error PASS, bogus `XAI_API_KEY` → real DNS+TLS+HTTP round-trip to api.x.ai (HTTP 400, as expected) PASS |
 | Sandbox under qemu | bubblewrap fails to create user namespaces under qemu-user — known emulation artifact, fails cleanly |
-| Real hardware (Smart Pi One) | **NOT yet validated**: TUI, real auth, H3 performance |
+| Install on hardware (Smart Pi One, DietPi trixie, 991 MB RAM, 4G uplink) | first install through the sudo path, from the published release: PASS (20 min, checksum OK) |
+| OTA update on hardware | `grok-check-update` → `update_available: true`; the gateway's service user re-runs the one-liner unprivileged → 1.0.12 → 1.0.45 in 23.6 min; probe back to `false`: PASS |
+| Runtime on hardware (H3, 1.0.45) | `--version` 0.1 s; `doctor` 0.1 s; TUI renders (login screen) and exits cleanly on Ctrl+Q; headless `-p` with a bogus key → real round-trip to api.x.ai, HTTP 400 in 7.7–8.7 s: PASS |
+| Second board (Hangzhou, Debian forky, glibc 2.43) | binary runs (`--version`, `doctor`, auth error); api.x.ai only through a tunnel — see [From mainland China](#from-mainland-china) |
+| **Not validated** | a real authenticated session (no xAI key was available for the tests), and grok's sandboxed command execution on hardware |
 
-No number above is estimated; everything listed was measured on the build host or under qemu. Treat this as a build pipeline awaiting hardware validation, not a finished port.
+No number above is estimated: each was measured on the build host, under qemu, or on two Smart Pi One boards (France and Hangzhou).
 
 ## License
 

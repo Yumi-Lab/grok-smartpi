@@ -201,7 +201,7 @@ Update:
     re-run install.sh           installs the newest snapshot (no-op when current)
 
 Known limits (see README):
-    the sandbox needs bubblewrap + user namespaces; hardware validation
-    (TUI, real auth, H3 performance) is still pending — this build has only
-    been smoke-tested under qemu.
+    the sandbox needs bubblewrap + user namespaces; a real authenticated
+    session is not validated yet; from mainland China, api.x.ai only works
+    through a tunnel.
 MSG

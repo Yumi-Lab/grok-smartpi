@@ -170,14 +170,14 @@ jobs:
 
           - upstream: $UPSTREAM_REPO @ $UPSTREAM_REV (\`$BIN_VER\`)
           - target: \`$TARGET\`, Rust 1.94.0, zig cc $ZIG_VERSION
-          - smoke-tested under qemu (linux/arm/v7, glibc 2.36); NOT yet validated on real hardware (TUI, auth, performance)
+          - smoke-tested under qemu (linux/arm/v7, glibc 2.36); install, OTA update, TUI and headless round-trip checked on Smart Pi One hardware; a real authenticated session is not validated yet
 
           Install on the board:
           \`\`\`
           curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | bash
           \`\`\`
 
-          Known limits: sandbox needs bubblewrap + user namespaces; under qemu-user the sandbox cannot start (emulation artifact). Details: https://github.com/Yumi-Lab/grok-smartpi
+          Known limits: sandbox needs bubblewrap + user namespaces; under qemu-user the sandbox cannot start (emulation artifact); from mainland China api.x.ai only works through a tunnel. Details: https://github.com/Yumi-Lab/grok-smartpi
           EOF
           )"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
