@@ -130,9 +130,11 @@ else
   URL_BIN="$(grok_asset_url "$TAG" "$GROK_ASSET_BIN")"
   URL_SUM="$(grok_asset_url "$TAG" "$GROK_ASSET_SUM")"
   [ -n "$URL_BIN" ] && [ -n "$URL_SUM" ] || fail "release $TAG is missing $GROK_ASSET_BIN / $GROK_ASSET_SUM"
+  # The 77-byte checksum first: from China a GitHub hop can drop at any time,
+  # and failing here costs a second, not the hour the binary takes there.
+  curl -fsSL -o "$DL/$GROK_ASSET_SUM" "$URL_SUM" || fail "download failed: $URL_SUM"
   log "Downloading $GROK_ASSET_BIN (~160 MB — this takes a while on a pad's WiFi)…"
   curl -fSL -C - --progress-bar -o "$DL/$GROK_ASSET_BIN" "$URL_BIN" || fail "download failed: $URL_BIN"
-  curl -fsSL -o "$DL/$GROK_ASSET_SUM" "$URL_SUM" || fail "download failed: $URL_SUM"
   ( cd "$DL" && sha256sum -c "$GROK_ASSET_SUM" ) || fail "sha256 mismatch — aborted, nothing installed."
 
   # --- 5. Install --------------------------------------------------------------
