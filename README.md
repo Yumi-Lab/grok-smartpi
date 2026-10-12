@@ -43,16 +43,15 @@ Full toolchain details, the reason for every patch, and the non-problems: [docs/
 - `armv7l` CPU (checked by `install.sh`)
 - glibc userland — **2.36 tested** (Debian bookworm); musl unsupported (dynamic ELF, interpreter `/lib/ld-linux-armhf.so.3`)
 - `bubblewrap` + a kernel with `CONFIG_USER_NS` for the command sandbox (the binary runs without it, unsandboxed — the installer warns)
-- RAM: **not measured on hardware.** The binary is 143,540,788 bytes; on a 512 MB–1 GB H3 board, watch memory pressure. `GROK_CPUS` + `nice` in the launcher help keep the board responsive.
+- RAM: **not measured on hardware.** The binary is ~158 MB; on a 512 MB–1 GB H3 board, watch memory pressure. `GROK_CPUS` + `nice` in the launcher help keep the board responsive.
 
 ## Measured status
 
 | | |
 |---|---|
-| Compiles for `armv7-unknown-linux-gnueabihf` | yes — `grok 1.0.12 (bc7f02eddd3d)`, upstream `bc7f02e` |
-| `cargo check` (fresh tree, Apple Silicon host) | 3m19s |
-| `cargo build --release` (Apple Silicon host) | ~6 min |
-| Local artifact | 143,540,788 bytes, `ELF 32-bit LSB pie executable, ARM, EABI5, dynamically linked, glibc, stripped` |
+| Compiles for `armv7-unknown-linux-gnueabihf` | yes — `grok 1.0.45 (2bdd1d6a6369)`, upstream `2bdd1d6` (patches unchanged since `bc7f02e`) |
+| `cargo build --release` (Apple Silicon host, empty target dir) | 21m27s |
+| Local artifact | 157,603,700 bytes, `ELF 32-bit LSB pie executable, ARM, EABI5, dynamically linked, glibc, stripped` |
 | CI build (ubuntu-24.04, cold cache) | 25m22s end to end — [run 33260015355](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/33260015355) |
 | Released artifact (`snapshot-armv7-bc7f02e`) | 145,061,620 bytes, sha256 `8324cd1a…85de42`, re-downloaded and checksum-verified |
 | qemu smoke (`linux/arm/v7`, glibc 2.36) | `--version` PASS (also in CI), `--help` PASS, `doctor` PASS, headless `-p` without key → clean auth error PASS, bogus `XAI_API_KEY` → real DNS+TLS+HTTP round-trip to api.x.ai (HTTP 400, as expected) PASS |

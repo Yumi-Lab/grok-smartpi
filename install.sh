@@ -11,7 +11,7 @@
 #   * downloads grok-armv7 + grok-armv7.sha256 into /var/tmp (never /tmp —
 #     tmpfs on these boards), verifies the checksum;
 #   * installs under /opt/grok:
-#       /opt/grok/grok-bin   the real binary (~143 MB)
+#       /opt/grok/grok-bin   the real binary (~160 MB)
 #       /opt/grok/grok       launcher (taskset/nice via GROK_CPUS)
 #       /opt/grok/VERSION    the installed release tag (update contract)
 #       /opt/grok/bin/grok-check-update   OTA probe (one JSON line)
@@ -130,7 +130,7 @@ else
   URL_BIN="$(grok_asset_url "$TAG" "$GROK_ASSET_BIN")"
   URL_SUM="$(grok_asset_url "$TAG" "$GROK_ASSET_SUM")"
   [ -n "$URL_BIN" ] && [ -n "$URL_SUM" ] || fail "release $TAG is missing $GROK_ASSET_BIN / $GROK_ASSET_SUM"
-  log "Downloading $GROK_ASSET_BIN (~143 MB — this takes a while on a pad's WiFi)…"
+  log "Downloading $GROK_ASSET_BIN (~160 MB — this takes a while on a pad's WiFi)…"
   curl -fSL -C - --progress-bar -o "$DL/$GROK_ASSET_BIN" "$URL_BIN" || fail "download failed: $URL_BIN"
   curl -fsSL -o "$DL/$GROK_ASSET_SUM" "$URL_SUM" || fail "download failed: $URL_SUM"
   ( cd "$DL" && sha256sum -c "$GROK_ASSET_SUM" ) || fail "sha256 mismatch — aborted, nothing installed."

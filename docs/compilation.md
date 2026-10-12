@@ -8,7 +8,7 @@ out *not* to be a problem, the qemu test results, and what remains unverified.
 
 | component | version | pinned where |
 |---|---|---|
-| upstream source | `xai-org/grok-build` @ `bc7f02eddd3d84085849dc19ed216f11c23b0571` | `UPSTREAM_REV` in `.github/workflows/build-armv7.yml` |
+| upstream source | `xai-org/grok-build` @ `2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8` | `UPSTREAM_REV` in `.github/workflows/build-armv7.yml` |
 | Rust | 1.94.0 (upstream `rust-toolchain.toml` pin) | workflow + upstream toml |
 | target | `armv7-unknown-linux-gnueabihf` | everywhere |
 | C cross-compiler / linker | zig 0.16.0 (`zig cc -target arm-linux-gnueabihf`) | `ZIG_VERSION` + `ZIG_SHA256` in workflow |
@@ -104,14 +104,17 @@ BurntSushi/ripgrep, verifies it against the recorded sha256
 
 ## Measured results
 
-Reference build on Apple Silicon (macOS):
+Reference build on Apple Silicon (macOS), upstream `2bdd1d6`:
 
-- `cargo check` on a fresh patched tree: **3m19s** (~50s with a warm target dir)
-- `cargo build --release`: **~6 min**
+- all four patches apply unchanged (only line offsets moved since `bc7f02e`);
+  zero compiler warnings
+- `cargo build --release` from an empty target dir: **21m27s** wall clock on
+  a host busy with other work (the earlier `bc7f02e` build took ~6 min with a
+  warm dependency cache)
 - artifact: `target/armv7-unknown-linux-gnueabihf/release/xai-grok-pager`,
-  **143,540,788 bytes**, `ELF 32-bit LSB pie executable, ARM, EABI5,
+  **157,603,700 bytes**, `ELF 32-bit LSB pie executable, ARM, EABI5,
   dynamically linked, interpreter /lib/ld-linux-armhf.so.3, glibc, stripped`,
-  `grok 1.0.12 (bc7f02eddd3d)`
+  `grok 1.0.45 (2bdd1d6a6369)`
 
 qemu smoke tests (docker `linux/arm/v7`, `debian:bookworm-slim`, glibc 2.36,
 binfmt via `tonistiigi/binfmt --install arm`) — all PASS:
@@ -150,7 +153,7 @@ after publication.
 git clone https://github.com/Yumi-Lab/grok-smartpi
 git init grok-build-armv7 && cd grok-build-armv7
 git remote add origin https://github.com/xai-org/grok-build
-git fetch --depth 1 origin bc7f02eddd3d84085849dc19ed216f11c23b0571
+git fetch --depth 1 origin 2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8
 git checkout FETCH_HEAD
 
 # third-party inputs (sha256-pinned, see the workflow env block)

@@ -18,7 +18,7 @@ env:
   UPSTREAM_REPO: https://github.com/xai-org/grok-build
   # Pinned upstream revision. Bump deliberately; if a patch stops applying,
   # the build fails LOUD — that is the signal the upstream tree moved.
-  UPSTREAM_REV: bc7f02eddd3d84085849dc19ed216f11c23b0571
+  UPSTREAM_REV: 2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8
   TARGET: armv7-unknown-linux-gnueabihf
   ZIG_VERSION: "0.16.0"
   # sha256 of zig-x86_64-linux-0.16.0.tar.xz (ziglang.org download index)
