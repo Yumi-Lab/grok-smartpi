@@ -46,16 +46,18 @@ command -v sha256sum >/dev/null || fail "sha256sum is required (coreutils)"
 
 # The binary is dynamically linked against glibc (interpreter
 # /lib/ld-linux-armhf.so.3) — musl systems (Alpine) cannot run it.
-if ! ldd --version 2>&1 | head -1 | grep -qi 'glibc\|gnu'; then
-  fail "glibc not detected — this build needs a glibc userland (Debian/Armbian), musl is unsupported."
-fi
+# getconf, not `ldd --version | head -1`: Debian's ldd is a bash script that
+# dies of SIGPIPE once head exits, and pipefail turned that into a false
+# "no glibc" on 47/50 runs on a real Smart Pi. musl's getconf rejects the key.
+GLIBC_VER="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
+case "$GLIBC_VER" in
+  "glibc "*) GLIBC_VER="${GLIBC_VER#glibc }" ;;
+  *) fail "glibc not detected — this build needs a glibc userland (Debian/Armbian), musl is unsupported." ;;
+esac
 # Built against bookworm-era symbols; glibc >= 2.36 verified under qemu.
-GLIBC_VER="$(ldd --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+$' || true)"
-if [ -n "$GLIBC_VER" ]; then
-  G_MAJ="${GLIBC_VER%%.*}"; G_MIN="${GLIBC_VER#*.}"
-  if [ "$G_MAJ" -lt 2 ] || { [ "$G_MAJ" -eq 2 ] && [ "$G_MIN" -lt 36 ]; }; then
-    warn "glibc $GLIBC_VER < 2.36 — untested, the binary may refuse to start."
-  fi
+G_MAJ="${GLIBC_VER%%.*}"; G_MIN="${GLIBC_VER#*.}"; G_MIN="${G_MIN%%[!0-9]*}"
+if [ "$G_MAJ" -lt 2 ] || { [ "$G_MAJ" -eq 2 ] && [ "${G_MIN:-0}" -lt 36 ]; }; then
+  warn "glibc $GLIBC_VER < 2.36 — untested, the binary may refuse to start."
 fi
 
 # The sandbox uses bubblewrap (user namespaces), not Landlock. Warn only.
