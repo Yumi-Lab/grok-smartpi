@@ -148,6 +148,9 @@ jobs:
           OUT="$(docker run --rm --platform linux/arm/v7 -v "$PWD/out:/work:ro" debian:bookworm-slim /work/grok-armv7 --version)"
           echo "$OUT"
           echo "$OUT" | grep -q grok
+          # The binary's own answer is the only reliable version source: the
+          # version and the commit are separate strings inside it.
+          echo "version=$OUT" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test notice
         if: steps.prep.outputs.skip != 'true' && steps.smoke.outcome == 'failure'
@@ -159,10 +162,12 @@ jobs:
         working-directory: upstream/out
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # empty when the qemu smoke test failed: the version is then unknown
+          BIN_VER: ${{ steps.smoke.outputs.version }}
         run: |
           set -e
           TAG="snapshot-armv7-$(printf '%s' "$UPSTREAM_REV" | cut -c1-7)"
-          BIN_VER="$(strings grok-armv7 | grep -m1 -oE 'grok [0-9]+\.[0-9]+\.[0-9]+ \([0-9a-f]+\)' || echo 'unknown')"
+          BIN_VER="${BIN_VER:-unknown}"
           # NOTE: the heredoc body must sit exactly at the run-block indent so
           # YAML strips it flush-left; the EOF terminator tolerates no indent.
           NOTES="$(cat <<EOF
