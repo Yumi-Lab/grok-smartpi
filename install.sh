@@ -159,6 +159,11 @@ fi
 fetch_repo bin/grok-check-update "$OPT/bin/grok-check-update" \
   || warn "grok-check-update not installed (non-fatal)."
 
+# A root run (`sudo bash`, or a root re-run) writes root-owned files into the
+# owner's tree; give them back, or the owner's next unprivileged update dies on
+# `cat > $LAUNCHER` after the download.
+if [ "$(id -u)" -eq 0 ]; then chown -R "$(stat -c %U:%G "$OPT")" "$OPT"; fi
+
 # --- 7. PATH (symlinks when privileged, hint otherwise) ------------------------
 if can_root; then
   $SUDO ln -sf "$LAUNCHER" /usr/local/bin/grok
