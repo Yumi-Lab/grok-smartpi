@@ -177,9 +177,9 @@ jobs:
           - target: \`$TARGET\`, Rust 1.94.0, zig cc $ZIG_VERSION
           - smoke-tested under qemu (linux/arm/v7, glibc 2.36); install, OTA update, TUI and headless round-trip checked on Smart Pi One hardware; a real authenticated session is not validated yet
 
-          Install on the board:
+          Test build: the installer never picks it on its own (boards stay on the pinned official release). To try it on one board:
           \`\`\`
-          curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | GROK_VERSION=$TAG bash
           \`\`\`
 
           Known limits: sandbox needs bubblewrap + user namespaces; under qemu-user the sandbox cannot start (emulation artifact); from mainland China api.x.ai only works through a tunnel. Details: https://github.com/Yumi-Lab/grok-smartpi

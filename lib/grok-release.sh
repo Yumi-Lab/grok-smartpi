@@ -1,62 +1,21 @@
 #!/bin/sh
-# grok-release.sh — single source of truth for grok-smartpi release endpoints.
-# Sourced by install.sh and bin/grok-check-update. Never duplicate this logic.
+# grok-release.sh — sourced by install.sh AND bin/grok-check-update: the one
+# place that decides which grok release a board installs, and where it lives.
 #
-# Releases are prereleases tagged `snapshot-armv7-<short upstream sha>` on
-# Yumi-Lab/grok-smartpi, each carrying two assets:
-#   grok-armv7          the armv7l binary (ELF 32-bit, glibc)
-#   grok-armv7.sha256   its sha256 ("<hash>  grok-armv7")
+# GROK_PIN — the official release validated on a real Smart Pi. The installer
+#   installs it and nothing else: the snapshot-armv7-* prereleases CI publishes
+#   on every upstream bump are test builds and never reach a board on their own.
+#   To move up: test a snapshot on a pad with
+#   `GROK_VERSION=snapshot-armv7-<sha> bash install.sh`, promote it to an
+#   official release, then bump GROK_PIN here; every pad's update badge
+#   (grok-check-update reads this line on GitHub) lights up.
 #
-# `gh release latest` semantics do not apply: /releases/latest skips
-# prereleases, so we always walk the releases list (ordered newest first).
-
+# Every release carries grok-armv7 (ELF 32-bit, glibc) and grok-armv7.sha256.
+# shellcheck disable=SC2034  # read by install.sh / grok-check-update
+GROK_PIN=v1.0.45
 GROK_RELEASE_REPO="Yumi-Lab/grok-smartpi"
-GROK_RELEASE_API="https://api.github.com/repos/$GROK_RELEASE_REPO/releases"
-# GROK_TAG_PREFIX / GROK_ASSET_* are consumed by install.sh (which sources this
-# file); shellcheck sees them as unused when linting the lib alone.
-# shellcheck disable=SC2034
-GROK_TAG_PREFIX="snapshot-armv7-"
-# shellcheck disable=SC2034
+GROK_DOWNLOAD="https://github.com/$GROK_RELEASE_REPO/releases/download"
+GROK_RAW="https://raw.githubusercontent.com/$GROK_RELEASE_REPO/main"
 GROK_ASSET_BIN="grok-armv7"
-# shellcheck disable=SC2034
 GROK_ASSET_SUM="grok-armv7.sha256"
-
-# Both lookups print "" on any failure and always return 0: install.sh runs
-# under pipefail, where curl's own status would otherwise kill it silently
-# (exit 35, no message) before its "" check can explain what went wrong.
-
-# grok_latest_tag — print the newest non-draft snapshot-armv7-* tag, "" if none
-# (offline, rate-limited, or no release published yet).
-grok_latest_tag() {
-  { curl -fsSL --max-time 15 "$GROK_RELEASE_API?per_page=20" 2>/dev/null || true; } \
-  | python3 -c '
-import json, sys
-try:
-    rels = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-for r in rels:
-    t = r.get("tag_name", "")
-    if t.startswith("snapshot-armv7-") and not r.get("draft"):
-        print(t)
-        break
-'
-}
-
-# grok_asset_url TAG ASSET — print the browser_download_url of ASSET in release
-# TAG, "" if the release or the asset is missing.
-grok_asset_url() {
-  { curl -fsSL --max-time 15 "$GROK_RELEASE_API/tags/$1" 2>/dev/null || true; } \
-  | python3 -c '
-import json, sys
-name = sys.argv[1]
-try:
-    r = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-for a in r.get("assets", []):
-    if a.get("name") == name:
-        print(a.get("browser_download_url", ""))
-        break
-' "$2"
-}
+GROK_VERSION="${GROK_VERSION:-$GROK_PIN}"

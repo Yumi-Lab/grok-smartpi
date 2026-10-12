@@ -2,7 +2,7 @@
 
 **Grok Build — xAI's agentic coding CLI — cross-compiled for 32-bit ARM (armv7l)**, targeting the Yumi Smart Pi One (Allwinner H3) and similar armhf boards.
 
-Upstream ([xai-org/grok-build](https://github.com/xai-org/grok-build), Rust, Apache 2.0) publishes no 32-bit ARM build. This repo carries the minimal patch set that makes the tree compile for `armv7-unknown-linux-gnueabihf`, plus a GitHub Action that reproduces the build and publishes snapshot prereleases, plus an installer that follows the `Yumi-Lab/*-smartpi` OTA contract.
+Upstream ([xai-org/grok-build](https://github.com/xai-org/grok-build), Rust, Apache 2.0) publishes no 32-bit ARM build. This repo carries the minimal patch set that makes the tree compile for `armv7-unknown-linux-gnueabihf`, plus a GitHub Action that reproduces the build and publishes test snapshots, plus an installer pinned to the official release validated on a real Smart Pi, following the `Yumi-Lab/*-smartpi` OTA contract.
 
 ## Install
 
@@ -12,8 +12,9 @@ On the board (armv7l, Debian/Armbian, glibc):
 curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | bash
 ```
 
+- **Pinned.** The installer installs `GROK_PIN` from [lib/grok-release.sh](lib/grok-release.sh) — currently **v1.0.45** (grok 1.0.45) — and nothing else. A new upstream commit or test snapshot never reaches a board on its own.
 - First install needs root/sudo (to create `/opt/grok` and hand it to your user). Every update after that runs unprivileged as the owner of `/opt/grok` — re-running `install.sh` **is** the updater (no-op when already current).
-- `GROK_VERSION=snapshot-armv7-<sha>` pins a specific release; `GROK_FORCE=1` forces a reinstall; `GROK_CPUS=0,1` limits the launcher to specific cores.
+- `GROK_VERSION=<tag>` installs another release instead of the pin (e.g. a `snapshot-armv7-<sha>` test build on one board); `GROK_FORCE=1` forces a reinstall; `GROK_CPUS=0,1` limits the launcher to specific cores.
 - Downloads go to `/var/tmp` (never `/tmp`, which is tmpfs on these boards), and every binary is verified against the `.sha256` published next to it.
 
 ## Usage
@@ -34,9 +35,18 @@ Auth requires an xAI API key: `export XAI_API_KEY=…`.
 3. Copy the `tools/cross/` zig wrappers in, apply `patches/*.patch` with `git apply` — a patch that stops applying **fails the build loudly**, which is the signal that upstream moved.
 4. `cargo build -p xai-grok-pager-bin --release --target armv7-unknown-linux-gnueabihf` with zig 0.16 as the C cross-compiler/linker.
 5. Upload the artifact, then smoke-test it under qemu (`linux/arm/v7`, Debian bookworm = glibc 2.36). A smoke failure posts a notice but never costs the artifact.
-6. On demand (`workflow_dispatch` with `release: true`, or a pushed `snapshot-armv7-*` tag), publish a **prerelease** tagged `snapshot-armv7-<short upstream sha>` with `grok-armv7` + `grok-armv7.sha256`. Snapshots never use upstream's own version numbers.
+6. On demand (`workflow_dispatch` with `release: true`, or a pushed `snapshot-armv7-*` tag), publish a **prerelease** tagged `snapshot-armv7-<short upstream sha>` with `grok-armv7` + `grok-armv7.sha256`. Snapshots are test builds: boards only get them with `GROK_VERSION`.
+7. A snapshot that passes on a real board is promoted, byte for byte, to an **official release** `v<grok version>` (see below), and `GROK_PIN` moves to it.
 
 Full toolchain details, the reason for every patch, and the non-problems: [docs/compilation.md](docs/compilation.md).
+
+## Moving to a newer grok (maintainers)
+
+1. Bump `UPSTREAM_REV` in the workflow, push, and push the tag `snapshot-armv7-<short sha>`: CI builds and publishes the snapshot (or fails loudly if a patch no longer applies).
+2. On one board: `curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | GROK_VERSION=snapshot-armv7-<short sha> bash`, then check `grok --version`, the TUI, and a real `grok -p`.
+3. Set `GROK_PIN=v<grok version>` in [lib/grok-release.sh](lib/grok-release.sh), commit, tag the commit `v<grok version>`, and push **the tag only**.
+4. Create the official release on that tag (latest, not prerelease) with the snapshot's `grok-armv7` + `grok-armv7.sha256` unchanged, plus `grok-<version>-source.zip` — the patched upstream tree from [Reproduce locally](docs/compilation.md#reproduce-locally), before `cargo build`, without `.git`. GitHub adds this repo's own source zip, whose `install.sh` is locked to that release.
+5. Push `main`. Every board's `grok-check-update` now reports `update_available: true`; re-running the installer moves it. (Pushing `main` before the release exists would point boards at a missing download.)
 
 ## Target prerequisites
 
@@ -62,7 +72,7 @@ Measured from a Smart Pi One on a Hangzhou fibre line (2026-10-12):
 | `cargo build --release` (Apple Silicon host, empty target dir) | 21m27s |
 | Local artifact | 157,603,700 bytes, `ELF 32-bit LSB pie executable, ARM, EABI5, dynamically linked, glibc, stripped` |
 | CI build (ubuntu-24.04, cold cache) | 20m19s (tag run, publishes) / 30m10s (`main` run) — [run 38205968517](https://github.com/Yumi-Lab/grok-smartpi/actions/runs/38205968517) |
-| Released artifact (`snapshot-armv7-2bdd1d6`) | 159,640,132 bytes, sha256 `84094bbb…9a3175`, re-downloaded and checksum-verified |
+| Official release `v1.0.45` | the `snapshot-armv7-2bdd1d6` binary promoted byte for byte: 159,640,132 bytes, sha256 `84094bbb…9a3175`, re-downloaded and checksum-verified |
 | qemu smoke (`linux/arm/v7`, glibc 2.36) | `--version` PASS (also in CI), `--help` PASS, `doctor` PASS, headless `-p` without key → clean auth error PASS, bogus `XAI_API_KEY` → real DNS+TLS+HTTP round-trip to api.x.ai (HTTP 400, as expected) PASS |
 | Sandbox under qemu | bubblewrap fails to create user namespaces under qemu-user — known emulation artifact, fails cleanly |
 | Install on hardware (Smart Pi One, DietPi trixie, 991 MB RAM, 4G uplink) | first install through the sudo path, from the published release: PASS (20 min, checksum OK) |

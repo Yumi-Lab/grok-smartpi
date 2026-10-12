@@ -1,7 +1,7 @@
 # Compilation report — Grok Build for armv7-unknown-linux-gnueabihf
 
 This document is the full technical record behind the `snapshot-armv7-*`
-prereleases: the exact toolchain, every patch and why it exists, what turned
+test builds and the official `v*` releases promoted from them: the exact toolchain, every patch and why it exists, what turned
 out *not* to be a problem, the qemu test results, and what remains unverified.
 
 ## Toolchain (exact)

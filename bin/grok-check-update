@@ -1,6 +1,7 @@
 #!/bin/sh
-# grok-check-update — one JSON line: installed vs newest grok-smartpi snapshot.
-#   {"cli":"grok","installed":"snapshot-armv7-bc7f02e","latest":"snapshot-armv7-bc7f02e","update_available":false}
+# grok-check-update — one JSON line: installed vs the release the installer is
+# pinned to (GROK_PIN in lib/grok-release.sh on GitHub's main branch).
+#   {"cli":"grok","installed":"v1.0.45","latest":"v1.0.45","update_available":false}
 #
 # Contract shared by every Yumi-Lab/*-smartpi repo (<cli>-check-update): no
 # sudo, no side effects, fast; "installed"/"latest" are null when unknown
@@ -8,7 +9,9 @@
 # badge, then re-runs install.sh to actually update.
 #
 # Installed source of truth: /opt/grok/VERSION (written by install.sh).
-# Latest: the newest snapshot-armv7-* prerelease of Yumi-Lab/grok-smartpi.
+# Latest: GROK_PIN on main — exactly what re-running the installer delivers, so
+# the badge lights up when a new release is validated and pinned, never for a
+# test snapshot. Parsed, not sourced: the probe runs no downloaded code.
 
 OPT="/opt/grok"
 LIB="$OPT/lib/grok-release.sh"
@@ -19,7 +22,8 @@ LIB="$OPT/lib/grok-release.sh"
 installed="$(cat "$OPT/VERSION" 2>/dev/null)"
 case "$installed" in *[!0-9a-zA-Z.-]*|"") installed="" ;; esac
 
-latest="$(grok_latest_tag)"
+latest="$(curl -fsSL --max-time 10 "$GROK_RAW/lib/grok-release.sh" 2>/dev/null \
+  | sed -n 's/^GROK_PIN=//p')"
 case "$latest" in *[!0-9a-zA-Z.-]*|"") latest="" ;; esac
 
 up=false

@@ -6,8 +6,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main/install.sh | bash
 #
 # What it does:
-#   * resolves the newest `snapshot-armv7-*` prerelease of this repo
-#     (or GROK_VERSION=<tag> to pin one);
+#   * installs GROK_PIN, the official release validated on a Smart Pi
+#     (lib/grok-release.sh) — never a newer build on its own;
 #   * downloads grok-armv7 + grok-armv7.sha256 into /var/tmp (never /tmp —
 #     tmpfs on these boards), verifies the checksum;
 #   * installs under /opt/grok:
@@ -26,10 +26,11 @@
 #   * re-running this script IS the update (no-op exit when already current);
 #   * `grok-check-update` prints {"cli":"grok","installed":…,"latest":…,
 #     "update_available":…} — what the gateway polls for its update badge;
-#   * release endpoints + version parsing live ONLY in lib/grok-release.sh.
+#   * the pin and the release endpoints live ONLY in lib/grok-release.sh.
 #
 # Env knobs:
-#   GROK_VERSION=<tag>   install this exact release tag instead of the latest
+#   GROK_VERSION=<tag>   install this release tag instead of the pin (e.g. a
+#                        snapshot-armv7-* test build on one pad)
 #   GROK_FORCE=1         reinstall even when already current
 #   GROK_CPUS=0,1        core list for the launcher (default: all cores)
 set -euo pipefail
@@ -41,7 +42,6 @@ fail() { printf '\033[1;31m[grok-smartpi]\033[0m %s\n' "$*" >&2; exit 1; }
 # --- 0. Target guards ---------------------------------------------------------
 [ "$(uname -m)" = "armv7l" ] || fail "This script targets armv7l (detected: $(uname -m)). On 64-bit, install the official release from https://github.com/xai-org/grok-build"
 command -v curl    >/dev/null || fail "curl is required"
-command -v python3 >/dev/null || fail "python3 is required (release JSON parsing)"
 command -v sha256sum >/dev/null || fail "sha256sum is required (coreutils)"
 
 # The binary is dynamically linked against glibc (interpreter
@@ -66,7 +66,7 @@ if ! command -v bwrap >/dev/null 2>&1; then
   warn "Install it when you can:  apt-get install bubblewrap"
 fi
 
-RAW="https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main"
+RAW="https://raw.githubusercontent.com/Yumi-Lab/grok-smartpi/main"  # = GROK_RAW, needed before the lib is fetched
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" 2>/dev/null && pwd || true)"
 
 # Fetch a repo file: local copy when run from a clone, otherwise raw GitHub.
@@ -108,15 +108,7 @@ fetch_repo lib/grok-release.sh "$OPT/lib/grok-release.sh" 644 \
 # shellcheck source=lib/grok-release.sh
 . "$OPT/lib/grok-release.sh"
 
-TAG="${GROK_VERSION:-}"
-if [ -z "$TAG" ]; then
-  TAG="$(grok_latest_tag)"
-  [ -n "$TAG" ] || fail "no snapshot-armv7-* release found on $GROK_RELEASE_REPO (offline? none published yet?)"
-fi
-case "$TAG" in
-  "$GROK_TAG_PREFIX"*) : ;;
-  *) fail "refusing tag '$TAG' — expected $GROK_TAG_PREFIX*" ;;
-esac
+TAG="$GROK_VERSION"
 CURRENT="$(cat "$VERSION_FILE" 2>/dev/null || true)"
 log "Target release: $TAG (installed: ${CURRENT:-none})"
 
@@ -127,9 +119,8 @@ else
   # --- 4. Download + verify (into /var/tmp, never /tmp: tmpfs on these boards) --
   DL="$(mktemp -d /var/tmp/grok-smartpi.XXXXXX)"
   trap 'rm -rf "$DL"' EXIT
-  URL_BIN="$(grok_asset_url "$TAG" "$GROK_ASSET_BIN")"
-  URL_SUM="$(grok_asset_url "$TAG" "$GROK_ASSET_SUM")"
-  [ -n "$URL_BIN" ] && [ -n "$URL_SUM" ] || fail "release $TAG is missing $GROK_ASSET_BIN / $GROK_ASSET_SUM"
+  URL_BIN="$GROK_DOWNLOAD/$TAG/$GROK_ASSET_BIN"
+  URL_SUM="$GROK_DOWNLOAD/$TAG/$GROK_ASSET_SUM"
   # The 77-byte checksum first: from China a GitHub hop can drop at any time,
   # and failing here costs a second, not the hour the binary takes there.
   curl -fsSL -o "$DL/$GROK_ASSET_SUM" "$URL_SUM" || fail "download failed: $URL_SUM"
@@ -198,7 +189,7 @@ Auth:
 
 Update:
     grok-check-update           →  {"cli":"grok","installed":…,"latest":…,"update_available":…}
-    re-run install.sh           installs the newest snapshot (no-op when current)
+    re-run install.sh           installs the pinned release (no-op when current)
 
 Known limits (see README):
     the sandbox needs bubblewrap + user namespaces; a real authenticated
